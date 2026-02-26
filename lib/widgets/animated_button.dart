@@ -8,6 +8,7 @@ class AnimatedButton extends StatefulWidget {
   final IconData? icon;
   final bool outlined;
   final double? width;
+  final Color? color;
 
   const AnimatedButton({
     super.key,
@@ -17,6 +18,7 @@ class AnimatedButton extends StatefulWidget {
     this.icon,
     this.outlined = false,
     this.width,
+    this.color,
   });
 
   @override
@@ -32,7 +34,7 @@ class _AnimatedButtonState extends State<AnimatedButton>
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 120),
       vsync: this,
     );
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
@@ -48,6 +50,10 @@ class _AnimatedButtonState extends State<AnimatedButton>
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final textP = AppTheme.textPrimary(brightness);
+    final accentColor = widget.color ?? AppColors.accent;
+
     return ScaleTransition(
       scale: _scaleAnimation,
       child: SizedBox(
@@ -62,18 +68,24 @@ class _AnimatedButtonState extends State<AnimatedButton>
                         widget.onPressed?.call();
                       },
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppTheme.accent),
+                  side: BorderSide(color: accentColor),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                   ),
                 ),
-                child: _buildChild(),
+                child: _buildChild(textP),
               )
             : Container(
                 decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
+                  gradient: LinearGradient(
+                    colors: [accentColor, accentColor.withOpacity(0.8)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                  boxShadow: widget.onPressed != null ? AppTheme.glowShadow : null,
+                  boxShadow: widget.onPressed != null
+                      ? AppTheme.glowShadow(color: accentColor)
+                      : null,
                 ),
                 child: ElevatedButton(
                   onPressed: widget.isLoading
@@ -89,20 +101,20 @@ class _AnimatedButtonState extends State<AnimatedButton>
                       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                     ),
                   ),
-                  child: _buildChild(),
+                  child: _buildChild(Colors.white),
                 ),
               ),
       ),
     );
   }
 
-  Widget _buildChild() {
+  Widget _buildChild(Color textColor) {
     if (widget.isLoading) {
-      return const SizedBox(
-        height: 24,
-        width: 24,
+      return SizedBox(
+        height: 22,
+        width: 22,
         child: CircularProgressIndicator(
-          color: AppTheme.textPrimary,
+          color: textColor,
           strokeWidth: 2.5,
         ),
       );
@@ -112,13 +124,13 @@ class _AnimatedButtonState extends State<AnimatedButton>
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(widget.icon, size: 20),
+          Icon(widget.icon, size: 20, color: textColor),
           const SizedBox(width: 8),
-          Text(widget.label),
+          Text(widget.label, style: TextStyle(color: textColor)),
         ],
       );
     }
 
-    return Text(widget.label);
+    return Text(widget.label, style: TextStyle(color: textColor));
   }
 }

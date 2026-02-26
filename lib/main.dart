@@ -6,9 +6,10 @@ import 'providers/auth_provider.dart';
 import 'providers/class_provider.dart';
 import 'providers/subject_provider.dart';
 import 'providers/resource_provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/splash/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/home/home_screen.dart';
+import 'screens/main_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,16 +24,23 @@ class ExamSprintApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ClassProvider()),
         ChangeNotifierProvider(create: (_) => SubjectProvider()),
         ChangeNotifierProvider(create: (_) => ResourceProvider()),
       ],
-      child: MaterialApp(
-        title: 'ExamSprint',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkTheme,
-        home: const AuthGate(),
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, _) {
+          return MaterialApp(
+            title: 'ExamSprint',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeProvider.themeMode,
+            home: const AuthGate(),
+          );
+        },
       ),
     );
   }
@@ -70,7 +78,7 @@ class _AuthGateState extends State<AuthGate> {
     if (_showSplash) return const SplashScreen();
 
     final auth = context.watch<AuthProvider>();
-    if (auth.isLoggedIn) return const HomeScreen();
+    if (auth.isLoggedIn) return const MainShell();
     return const LoginScreen();
   }
 }

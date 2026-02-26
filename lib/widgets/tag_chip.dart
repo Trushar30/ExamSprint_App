@@ -19,7 +19,10 @@ class TagChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = AppTheme.getTagColor(tag);
+    final brightness = Theme.of(context).brightness;
+    final color = AppColors.getTagColor(tag);
+    final altColor = AppTheme.surfaceAlt(brightness);
+    final borderColor = AppTheme.border(brightness);
 
     return GestureDetector(
       onTap: onTap,
@@ -27,10 +30,10 @@ class TagChip extends StatelessWidget {
         duration: AppTheme.animFast,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? color.withOpacity(0.2) : AppTheme.surfaceLight,
+          color: selected ? color.withOpacity(0.15) : altColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? color : AppTheme.border,
+            color: selected ? color.withOpacity(0.6) : borderColor,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -51,7 +54,7 @@ class TagChip extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: selected ? color : AppTheme.textSecondary,
+                color: selected ? color : AppTheme.textSecondary(brightness),
                 letterSpacing: 0.5,
               ),
             ),
@@ -62,7 +65,7 @@ class TagChip extends StatelessWidget {
                 child: Icon(
                   Icons.close,
                   size: 14,
-                  color: AppTheme.textTertiary,
+                  color: AppTheme.textTertiary(brightness),
                 ),
               ),
             ],

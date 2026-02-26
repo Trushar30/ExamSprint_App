@@ -110,6 +110,16 @@ class ResourceService {
     return Resource.fromMap({...data, 'resource_tags': tags.map((t) => {'tag': t}).toList()});
   }
 
+  Future<List<Resource>> getUserResources(String userId) async {
+    final data = await _client
+        .from('resources')
+        .select('*, resource_tags(*), profiles(*)')
+        .eq('uploaded_by', userId)
+        .order('created_at', ascending: false);
+
+    return (data as List).map((item) => Resource.fromMap(item)).toList();
+  }
+
   Future<void> deleteResource(String resourceId) async {
     await _client.from('resources').delete().eq('id', resourceId);
   }

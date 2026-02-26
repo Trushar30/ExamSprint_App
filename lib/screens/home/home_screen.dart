@@ -9,7 +9,6 @@ import '../../widgets/glass_card.dart';
 import '../class/create_class_screen.dart';
 import '../class/join_class_screen.dart';
 import '../class/class_dashboard_screen.dart';
-import '../profile/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,11 +17,25 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  String _searchQuery = '';
+  late AnimationController _greetCtrl;
+
   @override
   void initState() {
     super.initState();
     _loadClasses();
+    _greetCtrl = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _greetCtrl.dispose();
+    super.dispose();
   }
 
   void _loadClasses() {
@@ -32,56 +45,84 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final classProvider = context.watch<ClassProvider>();
+    final brightness = Theme.of(context).brightness;
 
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.darkGradient),
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'ExamSprint ⚡',
-                          style: GoogleFonts.spaceGrotesk(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
-                          ),
+    final filteredClasses = classProvider.classes.where((cls) {
+      if (_searchQuery.isEmpty) return true;
+      return cls.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          (cls.department ?? '').toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
+
+    return Container(
+      decoration: BoxDecoration(gradient: AppTheme.bgGradient(brightness)),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ─── Greeting Banner ──────────────────────────────────────
+            SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, -0.3),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: _greetCtrl,
+                curve: Curves.easeOutCubic,
+              )),
+              child: FadeTransition(
+                opacity: _greetCtrl,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'ExamSprint',
+                                  style: GoogleFonts.spaceGrotesk(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.textPrimary(brightness),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Text('⚡', style: TextStyle(fontSize: 22)),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${_getGreeting()}, ${authProvider.profile?.fullName.split(' ').first ?? 'Student'} 👋',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: AppTheme.textTertiary(brightness),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Hey, ${authProvider.profile?.fullName.split(' ').first ?? 'Student'} 👋',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            color: AppTheme.textTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ProfileScreen()),
                       ),
-                      child: Container(
+                      // Avatar
+                      Container(
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
                           gradient: AppTheme.primaryGradient,
                           borderRadius: BorderRadius.circular(14),
+                          boxShadow: AppTheme.glowShadow(),
                         ),
                         child: Center(
                           child: Text(
@@ -94,125 +135,273 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 24),
+            ),
+            const SizedBox(height: 20),
 
-              // Quick actions
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _QuickActionCard(
-                        icon: Icons.add_rounded,
-                        label: 'Create Class',
-                        color: AppTheme.accent,
-                        onTap: () async {
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const CreateClassScreen(),
-                            ),
-                          );
-                          if (result == true) _loadClasses();
-                        },
-                      ),
+            // ─── Search Bar ───────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceAlt(brightness),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  border: Border.all(color: AppTheme.border(brightness)),
+                ),
+                child: TextField(
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  style: TextStyle(color: AppTheme.textPrimary(brightness)),
+                  decoration: InputDecoration(
+                    hintText: 'Search your classes...',
+                    hintStyle: TextStyle(color: AppTheme.textTertiary(brightness)),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: AppTheme.textTertiary(brightness),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _QuickActionCard(
-                        icon: Icons.login_rounded,
-                        label: 'Join Class',
-                        color: AppTheme.success,
-                        onTap: () async {
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const JoinClassScreen(),
-                            ),
-                          );
-                          if (result == true) _loadClasses();
-                        },
-                      ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
                     ),
-                  ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 24),
+            ),
+            const SizedBox(height: 20),
 
-              // Section title
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Your Classes',
+            // ─── Quick Actions ────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _QuickActionCard(
+                      icon: Icons.add_rounded,
+                      label: 'Create Class',
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF7C3AED), Color(0xFF9F67FF)],
+                      ),
+                      brightness: brightness,
+                      onTap: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CreateClassScreen(),
+                          ),
+                        );
+                        if (result == true) _loadClasses();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _QuickActionCard(
+                      icon: Icons.login_rounded,
+                      label: 'Join Class',
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF10B981), Color(0xFF34D399)],
+                      ),
+                      brightness: brightness,
+                      onTap: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const JoinClassScreen(),
+                          ),
+                        );
+                        if (result == true) _loadClasses();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // ─── Section Header ───────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Your Classes',
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary(brightness),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${classProvider.classes.length}',
                       style: GoogleFonts.spaceGrotesk(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      '${classProvider.classes.length} joined',
-                      style: GoogleFonts.inter(
                         fontSize: 13,
-                        color: AppTheme.textTertiary,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.accent,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
+            ),
+            const SizedBox(height: 12),
 
-              // Class list
-              Expanded(
-                child: classProvider.isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(color: AppTheme.accent))
-                    : classProvider.classes.isEmpty
-                        ? _EmptyState()
-                        : RefreshIndicator(
-                            onRefresh: () async => _loadClasses(),
-                            color: AppTheme.accent,
-                            child: AnimationLimiter(
-                              child: ListView.builder(
-                                padding: const EdgeInsets.symmetric(horizontal: 24),
-                                itemCount: classProvider.classes.length,
-                                itemBuilder: (context, index) {
-                                  final cls = classProvider.classes[index];
-                                  return AnimationConfiguration.staggeredList(
-                                    position: index,
-                                    duration: const Duration(milliseconds: 375),
-                                    child: SlideAnimation(
-                                      verticalOffset: 50,
-                                      child: FadeInAnimation(
-                                        child: _ClassCard(
-                                          cls: cls,
-                                          onTap: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    ClassDashboardScreen(
-                                                  classId: cls.id,
-                                                  className: cls.name,
-                                                ),
+            // ─── Class List ───────────────────────────────────────────
+            Expanded(
+              child: classProvider.isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.accent,
+                      ),
+                    )
+                  : filteredClasses.isEmpty
+                      ? _EmptyState(brightness: brightness)
+                      : RefreshIndicator(
+                          onRefresh: () async => _loadClasses(),
+                          color: AppColors.accent,
+                          child: AnimationLimiter(
+                            child: ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+                              itemCount: filteredClasses.length,
+                              itemBuilder: (context, index) {
+                                final cls = filteredClasses[index];
+                                return AnimationConfiguration.staggeredList(
+                                  position: index,
+                                  duration:
+                                      const Duration(milliseconds: 375),
+                                  child: SlideAnimation(
+                                    verticalOffset: 50,
+                                    child: FadeInAnimation(
+                                      child: _ClassCard(
+                                        cls: cls,
+                                        brightness: brightness,
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  ClassDashboardScreen(
+                                                classId: cls.id,
+                                                className: cls.name,
                                               ),
-                                            );
-                                          },
-                                        ),
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
+                                  ),
+                                );
+                              },
                             ),
                           ),
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Quick Action Card ────────────────────────────────────────────────────────
+
+class _QuickActionCard extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final LinearGradient gradient;
+  final Brightness brightness;
+  final VoidCallback onTap;
+
+  const _QuickActionCard({
+    required this.icon,
+    required this.label,
+    required this.gradient,
+    required this.brightness,
+    required this.onTap,
+  });
+
+  @override
+  State<_QuickActionCard> createState() => _QuickActionCardState();
+}
+
+class _QuickActionCardState extends State<_QuickActionCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _ctrl.forward(),
+      onTapUp: (_) {
+        _ctrl.reverse();
+        widget.onTap();
+      },
+      onTapCancel: () => _ctrl.reverse(),
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 1.0, end: 0.95).animate(
+          CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+          decoration: BoxDecoration(
+            gradient: widget.gradient,
+            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+            boxShadow: [
+              BoxShadow(
+                color: widget.gradient.colors.first.withOpacity(0.3),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(widget.icon, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ],
           ),
@@ -222,58 +411,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _QuickActionCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _QuickActionCard({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      onTap: onTap,
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// ─── Class Card ───────────────────────────────────────────────────────────────
 
 class _ClassCard extends StatelessWidget {
   final dynamic cls;
   final VoidCallback onTap;
+  final Brightness brightness;
 
-  const _ClassCard({required this.cls, required this.onTap});
+  const _ClassCard({
+    required this.cls,
+    required this.onTap,
+    required this.brightness,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final accentColor = AppColors.hashColor(cls.name);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: GlassCard(
@@ -283,16 +437,28 @@ class _ClassCard extends StatelessWidget {
           children: [
             Row(
               children: [
+                // Colored initials
                 Container(
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
+                    gradient: LinearGradient(
+                      colors: [accentColor, accentColor.withOpacity(0.7)],
+                    ),
                     borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: accentColor.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Center(
                     child: Text(
-                      cls.name.substring(0, cls.name.length >= 2 ? 2 : 1).toUpperCase(),
+                      cls.name
+                          .substring(0, cls.name.length >= 2 ? 2 : 1)
+                          .toUpperCase(),
                       style: GoogleFonts.spaceGrotesk(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -309,12 +475,11 @@ class _ClassCard extends StatelessWidget {
                       Text(
                         cls.name,
                         style: GoogleFonts.spaceGrotesk(
-                          fontSize: 18,
+                          fontSize: 17,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
+                          color: AppTheme.textPrimary(brightness),
                         ),
                       ),
-                      const SizedBox(height: 2),
                       if (cls.semester != null || cls.department != null)
                         Text(
                           [cls.semester, cls.department]
@@ -322,16 +487,19 @@ class _ClassCard extends StatelessWidget {
                               .join(' • '),
                           style: GoogleFonts.inter(
                             fontSize: 12,
-                            color: AppTheme.textTertiary,
+                            color: AppTheme.textTertiary(brightness),
                           ),
                         ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: AppTheme.accent.withOpacity(0.15),
+                    color: accentColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -339,7 +507,7 @@ class _ClassCard extends StatelessWidget {
                     style: GoogleFonts.spaceGrotesk(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.accent,
+                      color: accentColor,
                       letterSpacing: 1,
                     ),
                   ),
@@ -354,7 +522,7 @@ class _ClassCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.inter(
                   fontSize: 13,
-                  color: AppTheme.textSecondary,
+                  color: AppTheme.textSecondary(brightness),
                 ),
               ),
             ],
@@ -369,14 +537,18 @@ class _ClassCard extends StatelessWidget {
                           ? 'Co-Admin'
                           : 'Member',
                   color: cls.userRole == 'admin'
-                      ? AppTheme.warning
+                      ? AppColors.warning
                       : cls.userRole == 'co_admin'
-                          ? AppTheme.success
-                          : AppTheme.textTertiary,
+                          ? AppColors.success
+                          : AppTheme.textTertiary(brightness),
+                  brightness: brightness,
                 ),
-                const SizedBox(width: 8),
-                const Icon(Icons.chevron_right_rounded,
-                    color: AppTheme.textTertiary, size: 20),
+                const Spacer(),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppTheme.textTertiary(brightness),
+                  size: 20,
+                ),
               ],
             ),
           ],
@@ -386,15 +558,19 @@ class _ClassCard extends StatelessWidget {
   }
 }
 
+// ─── Info Pill ────────────────────────────────────────────────────────────────
+
 class _InfoPill extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
+  final Brightness brightness;
 
   const _InfoPill({
     required this.icon,
     required this.label,
     required this.color,
+    required this.brightness,
   });
 
   @override
@@ -424,21 +600,38 @@ class _InfoPill extends StatelessWidget {
   }
 }
 
+// ─── Empty State ──────────────────────────────────────────────────────────────
+
 class _EmptyState extends StatelessWidget {
+  final Brightness brightness;
+  const _EmptyState({required this.brightness});
+
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.school_outlined, size: 64, color: AppTheme.textTertiary),
-          const SizedBox(height: 16),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(
+              Icons.school_outlined,
+              size: 40,
+              color: AppColors.accent,
+            ),
+          ),
+          const SizedBox(height: 20),
           Text(
             'No classes yet',
             style: GoogleFonts.spaceGrotesk(
               fontSize: 20,
               fontWeight: FontWeight.w600,
-              color: AppTheme.textSecondary,
+              color: AppTheme.textSecondary(brightness),
             ),
           ),
           const SizedBox(height: 8),
@@ -446,9 +639,10 @@ class _EmptyState extends StatelessWidget {
             'Create or join a class to get started',
             style: GoogleFonts.inter(
               fontSize: 14,
-              color: AppTheme.textTertiary,
+              color: AppTheme.textTertiary(brightness),
             ),
           ),
+          const SizedBox(height: 80), // space for bottom nav
         ],
       ),
     );

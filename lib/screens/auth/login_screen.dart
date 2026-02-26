@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'dart:math' as math;
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/animated_button.dart';
@@ -14,7 +15,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -22,23 +23,25 @@ class _LoginScreenState extends State<LoginScreen>
 
   bool _isSignUp = false;
   bool _obscurePassword = true;
-  late AnimationController _slideController;
-  late Animation<Offset> _slideAnimation;
+
+  late AnimationController _bgCtrl;
+  late AnimationController _fadeCtrl;
+  late Animation<double> _fadeAnim;
 
   @override
   void initState() {
     super.initState();
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 400),
+    _bgCtrl = AnimationController(
+      duration: const Duration(seconds: 10),
       vsync: this,
-    );
-    _slideAnimation = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(0, -0.05),
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeInOut,
-    ));
+    )..repeat();
+
+    _fadeCtrl = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    )..forward();
+
+    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutCubic);
   }
 
   @override
@@ -46,19 +49,15 @@ class _LoginScreenState extends State<LoginScreen>
     _emailController.dispose();
     _passwordController.dispose();
     _nameController.dispose();
-    _slideController.dispose();
+    _bgCtrl.dispose();
+    _fadeCtrl.dispose();
     super.dispose();
   }
 
   void _toggleMode() {
-    setState(() {
-      _isSignUp = !_isSignUp;
-    });
-    if (_isSignUp) {
-      _slideController.forward();
-    } else {
-      _slideController.reverse();
-    }
+    setState(() => _isSignUp = !_isSignUp);
+    _fadeCtrl.reset();
+    _fadeCtrl.forward();
   }
 
   Future<void> _submit() async {
@@ -86,9 +85,9 @@ class _LoginScreenState extends State<LoginScreen>
         SnackBar(
           content: Text(
             authProvider.error ?? 'Something went wrong',
-            style: const TextStyle(color: AppTheme.textPrimary),
+            style: const TextStyle(color: Colors.white),
           ),
-          backgroundColor: AppTheme.error.withOpacity(0.9),
+          backgroundColor: AppColors.error.withOpacity(0.9),
         ),
       );
     }
@@ -97,80 +96,144 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final brightness = Theme.of(context).brightness;
+    final isDark = brightness == Brightness.dark;
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.darkGradient),
+      body: AnimatedBuilder(
+        animation: _bgCtrl,
+        builder: (context, child) {
+          final angle = _bgCtrl.value * 2 * math.pi;
+          return Container(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment(
+                  math.cos(angle) * 0.3,
+                  math.sin(angle) * 0.3,
+                ),
+                radius: 1.5,
+                colors: isDark
+                    ? [
+                        const Color(0xFF1A0A2E),
+                        const Color(0xFF0B0B14),
+                        const Color(0xFF0A0A12),
+                      ]
+                    : [
+                        const Color(0xFFEDE7F6),
+                        const Color(0xFFF7F7FC),
+                        const Color(0xFFF0F0F8),
+                      ],
+              ),
+            ),
+            child: child,
+          );
+        },
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-              child: SlideTransition(
-                position: _slideAnimation,
+              child: FadeTransition(
+                opacity: _fadeAnim,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Logo
                     Container(
-                      width: 72,
-                      height: 72,
+                      width: 80,
+                      height: 80,
                       decoration: BoxDecoration(
                         gradient: AppTheme.primaryGradient,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: AppTheme.glowShadow,
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: AppTheme.glowShadow(),
                       ),
                       child: const Icon(
                         Icons.bolt_rounded,
-                        size: 36,
+                        size: 40,
                         color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     Text(
                       'ExamSprint',
                       style: GoogleFonts.spaceGrotesk(
-                        fontSize: 28,
+                        fontSize: 30,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        color: AppTheme.textPrimary(brightness),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _isSignUp ? 'Create your account' : 'Welcome back',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: AppTheme.textTertiary,
+                    const SizedBox(height: 6),
+                    AnimatedSwitcher(
+                      duration: AppTheme.animMedium,
+                      child: Text(
+                        _isSignUp
+                            ? 'Create your account'
+                            : 'Welcome back, student',
+                        key: ValueKey(_isSignUp),
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: AppTheme.textTertiary(brightness),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 32),
 
-                    // Form
+                    // Segmented toggle
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceAlt(brightness),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusMd),
+                        border: Border.all(
+                          color: AppTheme.border(brightness),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          _SegmentTab(
+                            label: 'Sign In',
+                            isActive: !_isSignUp,
+                            onTap: () {
+                              if (_isSignUp) _toggleMode();
+                            },
+                            brightness: brightness,
+                          ),
+                          _SegmentTab(
+                            label: 'Sign Up',
+                            isActive: _isSignUp,
+                            onTap: () {
+                              if (!_isSignUp) _toggleMode();
+                            },
+                            brightness: brightness,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Form Card
                     GlassCard(
                       padding: const EdgeInsets.all(24),
                       child: Form(
                         key: _formKey,
                         child: Column(
                           children: [
-                            // Name field (signup only)
+                            // Name (signup)
                             AnimatedSize(
                               duration: AppTheme.animMedium,
                               curve: Curves.easeInOut,
                               child: _isSignUp
                                   ? Column(
                                       children: [
-                                        TextFormField(
+                                        _AnimatedField(
                                           controller: _nameController,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Full Name',
-                                            hintText: 'Enter your name',
-                                            prefixIcon: Icon(Icons.person_outline,
-                                                color: AppTheme.textTertiary),
-                                          ),
-                                          style: const TextStyle(
-                                              color: AppTheme.textPrimary),
+                                          label: 'Full Name',
+                                          hint: 'Enter your name',
+                                          icon: Icons.person_outline,
+                                          brightness: brightness,
                                           validator: (v) {
                                             if (_isSignUp &&
-                                                (v == null || v.trim().isEmpty)) {
+                                                (v == null ||
+                                                    v.trim().isEmpty)) {
                                               return 'Name is required';
                                             }
                                             return null;
@@ -182,16 +245,13 @@ class _LoginScreenState extends State<LoginScreen>
                                   : const SizedBox.shrink(),
                             ),
 
-                            TextFormField(
+                            _AnimatedField(
                               controller: _emailController,
+                              label: 'Email',
+                              hint: 'you@example.com',
+                              icon: Icons.email_outlined,
+                              brightness: brightness,
                               keyboardType: TextInputType.emailAddress,
-                              decoration: const InputDecoration(
-                                labelText: 'Email',
-                                hintText: 'you@example.com',
-                                prefixIcon: Icon(Icons.email_outlined,
-                                    color: AppTheme.textTertiary),
-                              ),
-                              style: const TextStyle(color: AppTheme.textPrimary),
                               validator: (v) {
                                 if (v == null || v.trim().isEmpty) {
                                   return 'Email is required';
@@ -204,43 +264,56 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                             const SizedBox(height: 16),
 
-                            TextFormField(
+                            _AnimatedField(
                               controller: _passwordController,
+                              label: 'Password',
+                              hint: '••••••••',
+                              icon: Icons.lock_outline,
+                              brightness: brightness,
                               obscureText: _obscurePassword,
-                              decoration: InputDecoration(
-                                labelText: 'Password',
-                                hintText: '••••••••',
-                                prefixIcon: const Icon(Icons.lock_outline,
-                                    color: AppTheme.textTertiary),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
-                                    color: AppTheme.textTertiary,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    });
-                                  },
+                              suffix: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  color:
+                                      AppTheme.textTertiary(brightness),
+                                  size: 20,
                                 ),
+                                onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword),
                               ),
-                              style: const TextStyle(color: AppTheme.textPrimary),
                               validator: (v) {
                                 if (v == null || v.isEmpty) {
                                   return 'Password is required';
                                 }
                                 if (v.length < 6) {
-                                  return 'Password must be at least 6 characters';
+                                  return 'Min 6 characters';
                                 }
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 24),
+
+                            if (!_isSignUp) ...[
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: () {},
+                                  child: Text(
+                                    'Forgot password?',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      color: AppColors.accent,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ] else
+                              const SizedBox(height: 24),
 
                             AnimatedButton(
-                              label: _isSignUp ? 'Create Account' : 'Sign In',
+                              label:
+                                  _isSignUp ? 'Create Account' : 'Sign In',
                               isLoading: authProvider.isLoading,
                               onPressed: _submit,
                               icon: _isSignUp
@@ -251,31 +324,47 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
 
-                    // Toggle
+                    // Social placeholder
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            color: AppTheme.border(brightness),
+                          ),
+                        ),
+                        Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'OR',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: AppTheme.textTertiary(brightness),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Divider(
+                            color: AppTheme.border(brightness),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          _isSignUp
-                              ? 'Already have an account?'
-                              : "Don't have an account?",
-                          style: GoogleFonts.inter(
-                            color: AppTheme.textTertiary,
-                            fontSize: 14,
-                          ),
+                        _SocialButton(
+                          icon: Icons.g_mobiledata_rounded,
+                          brightness: brightness,
                         ),
-                        TextButton(
-                          onPressed: _toggleMode,
-                          child: Text(
-                            _isSignUp ? 'Sign In' : 'Sign Up',
-                            style: GoogleFonts.inter(
-                              color: AppTheme.accent,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
+                        const SizedBox(width: 16),
+                        _SocialButton(
+                          icon: Icons.apple_rounded,
+                          brightness: brightness,
                         ),
                       ],
                     ),
@@ -288,4 +377,152 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
+}
+
+// ─── Segment Tab ──────────────────────────────────────────────────────────────
+
+class _SegmentTab extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+  final Brightness brightness;
+
+  const _SegmentTab({
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+    required this.brightness,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: AppTheme.animFast,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.accent : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: isActive
+                  ? Colors.white
+                  : AppTheme.textTertiary(brightness),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Animated Text Field ──────────────────────────────────────────────────────
+
+class _AnimatedField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final IconData icon;
+  final Brightness brightness;
+  final bool obscureText;
+  final Widget? suffix;
+  final TextInputType? keyboardType;
+  final String? Function(String?)? validator;
+
+  const _AnimatedField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.icon,
+    required this.brightness,
+    this.obscureText = false,
+    this.suffix,
+    this.keyboardType,
+    this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      style: TextStyle(color: AppTheme.textPrimary(brightness)),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon, color: AppTheme.textTertiary(brightness)),
+        suffixIcon: suffix,
+      ),
+      validator: validator,
+    );
+  }
+}
+
+// ─── Social Button ────────────────────────────────────────────────────────────
+
+class _SocialButton extends StatelessWidget {
+  final IconData icon;
+  final Brightness brightness;
+
+  const _SocialButton({required this.icon, required this.brightness});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceAlt(brightness),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: AppTheme.border(brightness)),
+      ),
+      child: Icon(
+        icon,
+        color: AppTheme.textSecondary(brightness),
+        size: 28,
+      ),
+    );
+  }
+}
+
+// ─── AnimatedBuilder ──────────────────────────────────────────────────────────
+
+class AnimatedBuilder extends StatelessWidget {
+  final Animation<double> animation;
+  final Widget Function(BuildContext, Widget?) builder;
+  final Widget? child;
+
+  const AnimatedBuilder({
+    super.key,
+    required this.animation,
+    required this.builder,
+    this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _AnimBuilder(listenable: animation, builder: builder, child: child);
+  }
+}
+
+class _AnimBuilder extends AnimatedWidget {
+  final Widget Function(BuildContext, Widget?) builder;
+  final Widget? child;
+
+  const _AnimBuilder({
+    required super.listenable,
+    required this.builder,
+    this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) => builder(context, child);
 }
