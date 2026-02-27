@@ -6,6 +6,7 @@ import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/class_provider.dart';
 import '../../widgets/glass_card.dart';
+import '../../widgets/notification_bell.dart';
 import '../class/create_class_screen.dart';
 import '../class/join_class_screen.dart';
 import '../class/class_dashboard_screen.dart';
@@ -25,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
-    _loadClasses();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadClasses());
     _greetCtrl = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -115,6 +116,9 @@ class _HomeScreenState extends State<HomeScreen>
                           ],
                         ),
                       ),
+                      // Notification Bell
+                      const NotificationBell(),
+                      const SizedBox(width: 10),
                       // Avatar
                       Container(
                         width: 48,

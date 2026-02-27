@@ -2,6 +2,7 @@ import 'dart:math';
 import '../config/supabase_config.dart';
 import '../models/class_model.dart';
 import '../models/class_member.dart';
+import 'notification_service.dart';
 
 class ClassService {
   final _client = SupabaseConfig.client;
@@ -80,6 +81,36 @@ class ClassService {
       'user_id': userId,
       'role': 'member',
     });
+
+    // Notify existing class members about the new join
+    try {
+      // Get the user's name for the notification
+      final profile = await _client
+          .from('profiles')
+          .select('full_name')
+          .eq('id', userId)
+          .maybeSingle();
+      final name = profile?['full_name'] ?? 'Someone';
+
+      // Get the class name
+      final classData = await _client
+          .from('classes')
+          .select('name')
+          .eq('id', classId)
+          .maybeSingle();
+      final className = classData?['name'] ?? 'the class';
+
+      await NotificationService.notifyClassMembers(
+        classId: classId,
+        senderUserId: userId,
+        type: 'member_joined',
+        title: '👤 $name joined $className',
+        body: 'Say hello to the new member!',
+        data: {'class_id': classId},
+      );
+    } catch (_) {
+      // Non-critical
+    }
   }
 
   Future<bool> isMember({

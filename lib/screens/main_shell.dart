@@ -87,19 +87,22 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     _indicatorCtrl.forward(from: 0);
   }
 
-  void _onFabPressed() {
+  void _onFabPressed() async {
     // Rotate animation
     _fabRotateCtrl.forward(from: 0);
 
     final brightness = Theme.of(context).brightness;
     final isDark = brightness == Brightness.dark;
 
-    showModalBottomSheet(
+    await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) => _QuickActionsSheet(isDark: isDark, brightness: brightness),
     );
+
+    // Reverse rotation when sheet is dismissed
+    _fabRotateCtrl.reverse();
   }
 
   @override

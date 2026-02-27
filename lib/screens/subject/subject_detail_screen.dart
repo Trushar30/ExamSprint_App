@@ -28,7 +28,9 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<ResourceProvider>().loadResources(widget.subjectId);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ResourceProvider>().loadResources(widget.subjectId);
+    });
   }
 
   IconData _getResourceIcon(String? type) {

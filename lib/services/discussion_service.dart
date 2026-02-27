@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../models/discussion.dart';
+import 'notification_service.dart';
 
 class DiscussionService {
   final _client = SupabaseConfig.client;
@@ -97,7 +98,23 @@ class DiscussionService {
         .select('*, profiles(*)')
         .single();
 
-    return Announcement.fromMap(data);
+    final announcement = Announcement.fromMap(data);
+
+    // Notify all class members about the new announcement
+    try {
+      await NotificationService.notifyClassMembers(
+        classId: classId,
+        senderUserId: userId,
+        type: 'announcement',
+        title: '📢 $title',
+        body: content.length > 100 ? '${content.substring(0, 100)}...' : content,
+        data: {'class_id': classId, 'announcement_id': announcement.id},
+      );
+    } catch (_) {
+      // Non-critical: don't fail the announcement if notifications fail
+    }
+
+    return announcement;
   }
 
   Future<void> deleteAnnouncement(String id) async {

@@ -39,7 +39,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen>
     _tabController.addListener(() {
       setState(() => _selectedTab = _tabController.index);
     });
-    _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
   }
 
   @override

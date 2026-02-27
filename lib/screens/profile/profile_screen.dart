@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../models/resource.dart';
 import '../../services/resource_service.dart';
+import '../../services/ai_service.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/animated_button.dart';
 import '../resource/resource_reader_screen.dart';
@@ -30,6 +32,13 @@ class _ProfileScreenState extends State<ProfileScreen>
   List<Resource> _userResources = [];
   bool _loadingResources = true;
 
+  // AI API Key state
+  final _apiKeyController = TextEditingController();
+  bool _hasApiKey = false;
+  bool _isApiKeyVisible = false;
+  bool _isSaving = false;
+  AiProvider _selectedAiProvider = AiProvider.geminiFlash;
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
 
     _loadUserResources();
+    _loadApiKey();
   }
 
   Future<void> _loadUserResources() async {
@@ -67,12 +77,92 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
+  Future<void> _loadApiKey() async {
+    final provider = await AiService.getSelectedProvider();
+    final key = await AiService.getApiKey(provider);
+    if (mounted) {
+      setState(() {
+        _selectedAiProvider = provider;
+        _hasApiKey = key != null && key.isNotEmpty;
+        _apiKeyController.text = _hasApiKey ? key! : '';
+      });
+    }
+  }
+
+  Future<void> _switchProvider(AiProvider provider) async {
+    await AiService.setSelectedProvider(provider);
+    final key = await AiService.getApiKey(provider);
+    if (mounted) {
+      setState(() {
+        _selectedAiProvider = provider;
+        _hasApiKey = key != null && key.isNotEmpty;
+        _apiKeyController.text = _hasApiKey ? key! : '';
+        _isApiKeyVisible = false;
+      });
+    }
+  }
+
+  Future<void> _saveApiKey() async {
+    final key = _apiKeyController.text.trim();
+    if (key.isEmpty) return;
+    setState(() => _isSaving = true);
+    await AiService.setApiKey(key, _selectedAiProvider);
+    if (mounted) {
+      setState(() { _hasApiKey = true; _isSaving = false; });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 18),
+            SizedBox(width: 8),
+            Text('API key saved successfully!'),
+          ]),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
+
+  Future<void> _removeApiKey() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove API Key?'),
+        content: const Text('AI Playground features will stop working until a new key is added.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await AiService.removeApiKey(_selectedAiProvider);
+      if (mounted) {
+        setState(() { _hasApiKey = false; _apiKeyController.clear(); });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('API key removed'),
+            backgroundColor: AppColors.warning,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _nameCtrl.dispose();
     _usernameCtrl.dispose();
     _bioCtrl.dispose();
     _editCtrl.dispose();
+    _apiKeyController.dispose();
     super.dispose();
   }
 
@@ -445,6 +535,187 @@ class _ProfileScreenState extends State<ProfileScreen>
                         brightness: brightness,
                         onChanged: (_) {},
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // ─── AI Playground ───────────────────────────────────
+                _SectionTitle('AI Playground', brightness),
+                const SizedBox(height: 12),
+
+                // Provider selector
+                SizedBox(
+                  height: 90,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: AiProvider.values.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemBuilder: (context, index) {
+                      final provider = AiProvider.values[index];
+                      final info = aiProviders[provider]!;
+                      final isSelected = _selectedAiProvider == provider;
+                      return GestureDetector(
+                        onTap: () => _switchProvider(provider),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 130,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppColors.accent.withOpacity(0.15)
+                                : AppTheme.surfaceAlt(brightness),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppColors.accent
+                                  : AppTheme.border(brightness),
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Row(children: [
+                                Text(info.badge, style: const TextStyle(fontSize: 16)),
+                                const SizedBox(width: 4),
+                                if (isSelected)
+                                  Container(
+                                    width: 8, height: 8,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle, color: AppColors.success),
+                                  ),
+                              ]),
+                              const SizedBox(height: 6),
+                              Text(info.name,
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                  color: isSelected ? AppColors.accent : AppTheme.textPrimary(brightness)),
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                              Text(info.description,
+                                style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  color: AppTheme.textTertiary(brightness)),
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // API key card for selected provider
+                GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Status
+                      Row(children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            gradient: AppTheme.primaryGradient,
+                            borderRadius: BorderRadius.circular(10)),
+                          child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('${aiProviders[_selectedAiProvider]!.name} API Key',
+                              style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary(brightness))),
+                            const SizedBox(height: 2),
+                            Row(children: [
+                              Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: _hasApiKey ? AppColors.success : AppColors.error)),
+                              const SizedBox(width: 6),
+                              Text(_hasApiKey ? 'Connected' : 'Not configured',
+                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: _hasApiKey ? AppColors.success : AppColors.error)),
+                            ]),
+                          ])),
+                      ]),
+                      const SizedBox(height: 16),
+                      // Input
+                      TextField(
+                        controller: _apiKeyController,
+                        obscureText: !_isApiKeyVisible,
+                        style: GoogleFonts.robotoMono(fontSize: 13, color: AppTheme.textPrimary(brightness)),
+                        decoration: InputDecoration(
+                          hintText: 'Paste your ${aiProviders[_selectedAiProvider]!.name} API key...',
+                          hintStyle: GoogleFonts.inter(fontSize: 13, color: AppTheme.textTertiary(brightness)),
+                          filled: true,
+                          fillColor: AppTheme.surfaceAlt(brightness),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppTheme.border(brightness))),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.accent, width: 1.5)),
+                          suffixIcon: IconButton(
+                            icon: Icon(_isApiKeyVisible ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 18, color: AppTheme.textTertiary(brightness)),
+                            onPressed: () => setState(() => _isApiKeyVisible = !_isApiKeyVisible)),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Buttons
+                      Row(children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _isSaving ? null : _saveApiKey,
+                            icon: _isSaving
+                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Icon(Icons.save_rounded, size: 18),
+                            label: Text(_isSaving ? 'Saving...' : 'Save Key'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.accent,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                          ),
+                        ),
+                        if (_hasApiKey) ...[
+                          const SizedBox(width: 8),
+                          SizedBox(height: 44, child: OutlinedButton(
+                            onPressed: _removeApiKey,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.error,
+                              side: const BorderSide(color: AppColors.error),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                            child: const Icon(Icons.delete_outline, size: 18))),
+                        ],
+                      ]),
+                      const SizedBox(height: 14),
+                      // Get key link
+                      InkWell(
+                        onTap: () async {
+                          final uri = Uri.parse(aiProviders[_selectedAiProvider]!.apiKeyUrl);
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.info.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.info.withOpacity(0.2))),
+                          child: Row(children: [
+                            const Icon(Icons.key_rounded, color: AppColors.info, size: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text('Get a free ${aiProviders[_selectedAiProvider]!.name} API Key',
+                                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.info)),
+                                Text(aiProviders[_selectedAiProvider]!.apiKeyHint,
+                                  style: GoogleFonts.inter(fontSize: 11, color: AppColors.info.withOpacity(0.7))),
+                              ])),
+                            const Icon(Icons.open_in_new_rounded, color: AppColors.info, size: 16),
+                          ]),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text('🔒 Your key is stored locally on this device only.',
+                        style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textTertiary(brightness), height: 1.4)),
                     ],
                   ),
                 ),

@@ -2,9 +2,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../models/resource.dart';
 import '../services/resource_service.dart';
+import '../services/text_extraction_service.dart';
 
 class ResourceProvider extends ChangeNotifier {
   final ResourceService _resourceService = ResourceService();
+  final TextExtractionService _textExtractionService = TextExtractionService();
 
   List<Resource> _resources = [];
   List<String> _availableTags = [];
@@ -91,6 +93,17 @@ class ResourceProvider extends ChangeNotifier {
       _resources.insert(0, resource);
       _isUploading = false;
       notifyListeners();
+
+      // Trigger text extraction asynchronously (non-blocking)
+      _textExtractionService.extractAndStore(
+        resourceId: resource.id,
+        fileBytes: fileBytes,
+        fileType: fileType,
+        linkUrl: linkUrl,
+        title: title,
+        description: description,
+      );
+
       return resource;
     } catch (e) {
       _error = e.toString();

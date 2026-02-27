@@ -3,6 +3,7 @@ import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../models/resource.dart';
+import 'notification_service.dart';
 
 class ResourceService {
   final _client = SupabaseConfig.client;
@@ -107,7 +108,35 @@ class ResourceService {
       );
     }
 
-    return Resource.fromMap({...data, 'resource_tags': tags.map((t) => {'tag': t}).toList()});
+    final resource = Resource.fromMap({...data, 'resource_tags': tags.map((t) => {'tag': t}).toList()});
+
+    // Notify class members about the new resource
+    try {
+      // Look up class_id from the subject
+      final subject = await _client
+          .from('subjects')
+          .select('class_id, name')
+          .eq('id', subjectId)
+          .maybeSingle();
+      if (subject != null) {
+        await NotificationService.notifyClassMembers(
+          classId: subject['class_id'] as String,
+          senderUserId: userId,
+          type: 'resource_added',
+          title: '📦 New resource in ${subject['name']}',
+          body: title,
+          data: {
+            'class_id': subject['class_id'],
+            'subject_id': subjectId,
+            'resource_id': resource.id,
+          },
+        );
+      }
+    } catch (_) {
+      // Non-critical
+    }
+
+    return resource;
   }
 
   Future<List<Resource>> getUserResources(String userId) async {
