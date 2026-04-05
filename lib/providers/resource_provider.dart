@@ -94,15 +94,20 @@ class ResourceProvider extends ChangeNotifier {
       _isUploading = false;
       notifyListeners();
 
-      // Trigger text extraction asynchronously (non-blocking)
-      _textExtractionService.extractAndStore(
-        resourceId: resource.id,
-        fileBytes: fileBytes,
-        fileType: fileType,
-        linkUrl: linkUrl,
-        title: title,
-        description: description,
-      );
+      // Run text extraction (awaited so errors are caught)
+      try {
+        await _textExtractionService.extractAndStore(
+          resourceId: resource.id,
+          fileBytes: fileBytes,
+          fileType: fileType,
+          fileUrl: fileUrl,
+          linkUrl: linkUrl,
+          title: title,
+          description: description,
+        );
+      } catch (_) {
+        // Non-critical: resource is saved even if extraction fails
+      }
 
       return resource;
     } catch (e) {
@@ -110,6 +115,17 @@ class ResourceProvider extends ChangeNotifier {
       _isUploading = false;
       notifyListeners();
       return null;
+    }
+  }
+
+  /// Retry text extraction for all pending/failed/missing resources in a subject
+  Future<int> retryFailedExtractions(String subjectId) async {
+    try {
+      final count =
+          await _textExtractionService.extractMissingResources(subjectId);
+      return count;
+    } catch (e) {
+      return 0;
     }
   }
 

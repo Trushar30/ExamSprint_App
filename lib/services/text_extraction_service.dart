@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:http/http.dart' as http;
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../config/supabase_config.dart';
 import '../models/resource_text.dart';
@@ -39,11 +40,25 @@ class TextExtractionService {
     }
   }
 
+  /// Download file bytes from a public Supabase Storage URL
+  Future<Uint8List?> _downloadFileBytes(String fileUrl) async {
+    try {
+      final response = await http.get(Uri.parse(fileUrl));
+      if (response.statusCode == 200) {
+        return response.bodyBytes;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// Main orchestrator: extract text and store in database
   Future<void> extractAndStore({
     required String resourceId,
     Uint8List? fileBytes,
     String? fileType,
+    String? fileUrl,
     String? linkUrl,
     String? title,
     String? description,
@@ -57,16 +72,22 @@ class TextExtractionService {
         'extraction_status': 'pending',
       }, onConflict: 'resource_id');
 
+      // If we don't have file bytes but have a URL, download them
+      Uint8List? bytes = fileBytes;
+      if (bytes == null && fileUrl != null && fileUrl.isNotEmpty) {
+        bytes = await _downloadFileBytes(fileUrl);
+      }
+
       String extractedText = '';
 
       // Extract based on file type
-      if (fileBytes != null && fileType != null) {
+      if (bytes != null && fileType != null) {
         final type = fileType.toLowerCase();
         if (type == 'pdf') {
-          extractedText = extractTextFromPdf(fileBytes);
+          extractedText = extractTextFromPdf(bytes);
         } else if (['txt', 'md', 'csv', 'json', 'xml', 'html']
             .contains(type)) {
-          extractedText = extractTextFromBytes(fileBytes);
+          extractedText = extractTextFromBytes(bytes);
         }
       }
 
@@ -103,6 +124,52 @@ class TextExtractionService {
           'extracted_at': DateTime.now().toIso8601String(),
         }, onConflict: 'resource_id');
       } catch (_) {}
+    }
+  }
+
+  /// Process all resources that are missing text extraction or stuck
+  /// in pending/failed status for a given subject.
+  Future<int> extractMissingResources(String subjectId) async {
+    try {
+      // Get all resources for the subject
+      final resources = await _client
+          .from('resources')
+          .select('id, title, description, file_url, link_url, file_type')
+          .eq('subject_id', subjectId);
+
+      int processed = 0;
+
+      for (final res in (resources as List)) {
+        final resourceId = res['id'] as String;
+
+        // Check if extraction already completed
+        final existing = await _client
+            .from('resource_text_content')
+            .select('extraction_status')
+            .eq('resource_id', resourceId)
+            .maybeSingle();
+
+        // Skip if already completed
+        if (existing != null &&
+            existing['extraction_status'] == 'completed') {
+          continue;
+        }
+
+        // Run extraction (will download file from URL)
+        await extractAndStore(
+          resourceId: resourceId,
+          fileType: res['file_type'] as String?,
+          fileUrl: res['file_url'] as String?,
+          linkUrl: res['link_url'] as String?,
+          title: res['title'] as String?,
+          description: res['description'] as String?,
+        );
+        processed++;
+      }
+
+      return processed;
+    } catch (e) {
+      return 0;
     }
   }
 

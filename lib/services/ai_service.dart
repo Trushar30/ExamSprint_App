@@ -238,23 +238,23 @@ $context
 
 **Instructions**:
 - Generate exactly $questionCount questions
-- Each question should have 4 options (A, B, C, D)
-- Mark the correct answer clearly
+- Each question should have exactly 4 options
 - Questions should test understanding, not just memorization
 - Cover different topics from the material
-- Use this EXACT format for each question:
+- Return ONLY a valid JSON array, no markdown, no explanation outside the JSON
+- Do NOT wrap in code fences or any other formatting
 
-**Q1.** [Question text]
-A) [Option A]
-B) [Option B]
-C) [Option C]
-D) [Option D]
-**Answer: [Letter]**
-**Explanation:** [Brief explanation]
+Return ONLY this JSON structure (no other text before or after):
+[
+  {
+    "question": "What is ...?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctIndex": 0,
+    "explanation": "Brief explanation of why this is correct"
+  }
+]
 
----
-
-Generate the quiz now:
+Generate the JSON quiz now:
 ''';
     return _generate(prompt);
   }
