@@ -227,11 +227,28 @@ class AiService {
     required String context,
     required String subjectName,
     int questionCount = 10,
+    String difficulty = 'Medium',
+    String? topicFocus,
+    List<String>? chapterNames,
   }) async {
+    final chapterSection = (chapterNames != null && chapterNames.isNotEmpty)
+        ? '\n**Focus on these chapters/resources**: ${chapterNames.join(", ")}'
+        : '';
+    final topicSection = (topicFocus != null && topicFocus.isNotEmpty)
+        ? '\n**Specific Topic Focus**: $topicFocus — prioritize questions related to this topic'
+        : '';
+
+    final difficultyGuide = {
+      'Easy': 'Focus on basic definitions, recall, and simple concept checks. Avoid tricky or multi-step reasoning.',
+      'Medium': 'Mix of conceptual understanding and application. Include some questions that require connecting ideas.',
+      'Hard': 'Focus on advanced application, analysis, and tricky edge-cases. Include multi-step reasoning and comparative questions.',
+    };
+
     final prompt = '''
 You are an expert exam preparation assistant. Based on the following study material, generate exactly $questionCount multiple-choice questions.
 
 **Subject**: $subjectName
+**Difficulty**: $difficulty — ${difficultyGuide[difficulty] ?? difficultyGuide['Medium']!}$chapterSection$topicSection
 
 **Study Material**:
 $context
@@ -239,6 +256,7 @@ $context
 **Instructions**:
 - Generate exactly $questionCount questions
 - Each question should have exactly 4 options
+- Match the $difficulty difficulty level strictly
 - Questions should test understanding, not just memorization
 - Cover different topics from the material
 - Return ONLY a valid JSON array, no markdown, no explanation outside the JSON
@@ -262,11 +280,20 @@ Generate the JSON quiz now:
   Future<String> generateSummary({
     required String context,
     required String subjectName,
+    String? topicFocus,
+    List<String>? chapterNames,
   }) async {
+    final chapterSection = (chapterNames != null && chapterNames.isNotEmpty)
+        ? '\n**Focus on these chapters/resources**: ${chapterNames.join(", ")}'
+        : '';
+    final topicSection = (topicFocus != null && topicFocus.isNotEmpty)
+        ? '\n**Specific Topic Focus**: $topicFocus — prioritize and focus the summary around this topic'
+        : '';
+
     final prompt = '''
 You are an expert academic summarizer. Create a comprehensive, well-structured summary of the following study material.
 
-**Subject**: $subjectName
+**Subject**: $subjectName$chapterSection$topicSection
 
 **Study Material**:
 $context
@@ -324,12 +351,21 @@ Your answer:
     required String context,
     required String subjectName,
     int daysAvailable = 7,
+    String? topicFocus,
+    List<String>? chapterNames,
   }) async {
+    final chapterSection = (chapterNames != null && chapterNames.isNotEmpty)
+        ? '\n**Focus on these chapters/resources**: ${chapterNames.join(", ")}'
+        : '';
+    final topicSection = (topicFocus != null && topicFocus.isNotEmpty)
+        ? '\n**Specific Topic Focus**: $topicFocus — give extra emphasis to this topic in the plan'
+        : '';
+
     final prompt = '''
 You are an expert academic planner. Create a detailed, day-wise study plan for the following subject material.
 
 **Subject**: $subjectName
-**Days Available**: $daysAvailable days
+**Days Available**: $daysAvailable days$chapterSection$topicSection
 
 **Study Material**:
 $context

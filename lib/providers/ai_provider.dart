@@ -59,6 +59,13 @@ class AiProvider extends ChangeNotifier {
   int _currentQuestionIndex = 0;
   bool _quizCompleted = false;
 
+  // ── Quiz Filter State ─────────────────────────────────────────────────────
+  String _quizDifficulty = 'Medium';
+  String _topicFocus = '';
+  List<Map<String, String>> _availableResources = [];
+  Set<String> _selectedResourceIds = {};
+  bool _isLoadingResources = false;
+
   // ── Getters ────────────────────────────────────────────────────────────────
   List<Subject> get availableSubjects => _availableSubjects;
   Subject? get selectedSubject => _selectedSubject;
@@ -80,6 +87,14 @@ class AiProvider extends ChangeNotifier {
   Set<int> get revealedAnswers => _revealedAnswers;
   int get currentQuestionIndex => _currentQuestionIndex;
   bool get quizCompleted => _quizCompleted;
+
+  // Quiz filter getters
+  String get quizDifficulty => _quizDifficulty;
+  String get topicFocus => _topicFocus;
+  List<Map<String, String>> get availableResources => _availableResources;
+  Set<String> get selectedResourceIds => _selectedResourceIds;
+  bool get isLoadingResources => _isLoadingResources;
+  bool get hasResourceFilter => _selectedResourceIds.isNotEmpty;
 
   int get quizScore {
     int score = 0;
@@ -109,12 +124,15 @@ class AiProvider extends ChangeNotifier {
     _chatHistory = [];
     _error = null;
     _resetQuizState();
+    _resetFilters();
     notifyListeners();
 
     if (subject != null) {
       await _loadContext([subject.id]);
+      await _loadAvailableResources(subject.id);
     } else {
       _context = '';
+      _availableResources = [];
       notifyListeners();
     }
   }
@@ -141,6 +159,60 @@ class AiProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Quiz Filter Management ────────────────────────────────────────────────
+
+  void setQuizDifficulty(String difficulty) {
+    _quizDifficulty = difficulty;
+    notifyListeners();
+  }
+
+  void setTopicFocus(String topic) {
+    _topicFocus = topic;
+    notifyListeners();
+  }
+
+  void toggleResourceSelection(String resourceId) {
+    if (_selectedResourceIds.contains(resourceId)) {
+      _selectedResourceIds.remove(resourceId);
+    } else {
+      _selectedResourceIds.add(resourceId);
+    }
+    notifyListeners();
+  }
+
+  void selectAllResources() {
+    _selectedResourceIds = _availableResources
+        .map((r) => r['id']!)
+        .toSet();
+    notifyListeners();
+  }
+
+  void deselectAllResources() {
+    _selectedResourceIds = {};
+    notifyListeners();
+  }
+
+  void _resetFilters() {
+    _quizDifficulty = 'Medium';
+    _topicFocus = '';
+    _selectedResourceIds = {};
+  }
+
+  Future<void> _loadAvailableResources(String subjectId) async {
+    _isLoadingResources = true;
+    notifyListeners();
+
+    try {
+      _availableResources =
+          await _textExtractionService.getResourceListForSubject(subjectId);
+    } catch (e) {
+      _availableResources = [];
+    }
+
+    _isLoadingResources = false;
+    notifyListeners();
+  }
+
   // ── AI Features ────────────────────────────────────────────────────────────
 
   Future<void> generateQuiz({int questionCount = 10}) async {
@@ -158,10 +230,26 @@ class AiProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Build context — use filtered resources if any are selected
+      String quizContext = _context;
+      List<String>? chapterNames;
+
+      if (_selectedResourceIds.isNotEmpty) {
+        quizContext = await _textExtractionService
+            .buildContextForResources(_selectedResourceIds.toList());
+        chapterNames = _availableResources
+            .where((r) => _selectedResourceIds.contains(r['id']))
+            .map((r) => r['title']!)
+            .toList();
+      }
+
       final raw = await _aiService.generateQuiz(
-        context: _context,
+        context: quizContext,
         subjectName: _selectedSubject!.name,
         questionCount: questionCount,
+        difficulty: _quizDifficulty,
+        topicFocus: _topicFocus.isNotEmpty ? _topicFocus : null,
+        chapterNames: chapterNames,
       );
 
       // Try to parse JSON from the response
@@ -265,7 +353,10 @@ class AiProvider extends ChangeNotifier {
 
   // ── Other AI Features (unchanged) ─────────────────────────────────────────
 
-  Future<void> generateSummary() async {
+  Future<void> generateSummary({
+    String? topicFocus,
+    Set<String>? selectedResourceIds,
+  }) async {
     if (!hasContext || _selectedSubject == null) {
       _error = 'Please select a subject with resources first';
       notifyListeners();
@@ -278,9 +369,25 @@ class AiProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Build context — use filtered resources if any are selected
+      String summaryContext = _context;
+      List<String>? chapterNames;
+
+      final resIds = selectedResourceIds ?? {};
+      if (resIds.isNotEmpty) {
+        summaryContext = await _textExtractionService
+            .buildContextForResources(resIds.toList());
+        chapterNames = _availableResources
+            .where((r) => resIds.contains(r['id']))
+            .map((r) => r['title']!)
+            .toList();
+      }
+
       _summaryResult = await _aiService.generateSummary(
-        context: _context,
+        context: summaryContext,
         subjectName: _selectedSubject!.name,
+        topicFocus: topicFocus,
+        chapterNames: chapterNames,
       );
     } catch (e) {
       _error = e.toString();
@@ -322,7 +429,11 @@ class AiProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> generateStudyPlan({int days = 7}) async {
+  Future<void> generateStudyPlan({
+    int days = 7,
+    String? topicFocus,
+    Set<String>? selectedResourceIds,
+  }) async {
     if (!hasContext || _selectedSubject == null) {
       _error = 'Please select a subject with resources first';
       notifyListeners();
@@ -335,10 +446,26 @@ class AiProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Build context — use filtered resources if any are selected
+      String planContext = _context;
+      List<String>? chapterNames;
+
+      final resIds = selectedResourceIds ?? {};
+      if (resIds.isNotEmpty) {
+        planContext = await _textExtractionService
+            .buildContextForResources(resIds.toList());
+        chapterNames = _availableResources
+            .where((r) => resIds.contains(r['id']))
+            .map((r) => r['title']!)
+            .toList();
+      }
+
       _studyPlanResult = await _aiService.generateStudyPlan(
-        context: _context,
+        context: planContext,
         subjectName: _selectedSubject!.name,
         daysAvailable: days,
+        topicFocus: topicFocus,
+        chapterNames: chapterNames,
       );
     } catch (e) {
       _error = e.toString();
@@ -370,6 +497,8 @@ class AiProvider extends ChangeNotifier {
     _chatHistory = [];
     _error = null;
     _resetQuizState();
+    _resetFilters();
+    _availableResources = [];
     notifyListeners();
   }
 }

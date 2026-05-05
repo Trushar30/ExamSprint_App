@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'dart:ui';
+import 'dart:math' as math;
 import '../../config/theme.dart';
+import '../../widgets/animated_builder.dart';
 import '../../providers/ai_provider.dart';
 
 class AiChatScreen extends StatefulWidget {
@@ -317,65 +319,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
   }
 
   Widget _buildTypingIndicator(Brightness brightness, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF10B981), Color(0xFF34D399)],
-              ),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.auto_awesome,
-                color: Colors.white, size: 16),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.darkSurfaceAlt
-                  : AppColors.lightSurfaceAlt,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-                bottomRight: Radius.circular(16),
-                bottomLeft: Radius.circular(4),
-              ),
-              border: Border.all(
-                color: AppTheme.border(brightness).withOpacity(0.5),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.accent,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Thinking...',
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: AppTheme.textTertiary(brightness),
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    return _BouncingTypingIndicator(brightness: brightness, isDark: isDark);
   }
 
   Widget _buildInputField(
@@ -493,3 +437,117 @@ class _SuggestionChip extends StatelessWidget {
     );
   }
 }
+
+class _BouncingTypingIndicator extends StatefulWidget {
+  final Brightness brightness;
+  final bool isDark;
+  
+  const _BouncingTypingIndicator({required this.brightness, required this.isDark});
+
+  @override
+  State<_BouncingTypingIndicator> createState() => _BouncingTypingIndicatorState();
+}
+
+class _BouncingTypingIndicatorState extends State<_BouncingTypingIndicator> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF10B981), Color(0xFF34D399)],
+              ),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.auto_awesome,
+                color: Colors.white, size: 16),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: widget.isDark
+                  ? AppColors.darkSurfaceAlt
+                  : AppColors.lightSurfaceAlt,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+                bottomLeft: Radius.circular(4),
+              ),
+              border: Border.all(
+                color: AppTheme.border(widget.brightness).withOpacity(0.5),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(3, (i) {
+                    return AnimatedBuilder2(
+                      animation: _ctrl,
+                      builder: (context, child) {
+                        final t = (_ctrl.value * 3 - i) % 3;
+                        final offset =
+                            t >= 0 && t <= 1 ? -4 * _sin(t * 3.14159) : 0.0;
+                        return Transform.translate(
+                          offset: Offset(0, offset),
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              color: AppColors.accent,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  }),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Thinking...',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppTheme.textTertiary(widget.brightness),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _sin(double radians) {
+    return math.sin(radians);
+  }
+}
+

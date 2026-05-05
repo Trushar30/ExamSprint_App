@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:math' as math;
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  AppColors — Single source of truth for every color in the app
@@ -90,6 +91,12 @@ class AppTheme {
   static const Duration animFast   = Duration(milliseconds: 200);
   static const Duration animMedium = Duration(milliseconds: 400);
   static const Duration animSlow   = Duration(milliseconds: 600);
+
+  static const Curve springCurve = SpringCurve();
+  static const Curve bounceCurve = Curves.bounceOut;
+
+  static const Duration pageTransitionDuration = Duration(milliseconds: 300);
+  static const Curve pageTransitionCurve = Curves.easeOutCubic;
 
   // ── Gradients ─────────────────────────────────────────────────────────────
   static const LinearGradient primaryGradient = LinearGradient(
@@ -341,5 +348,24 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusLg)),
       ),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Spring Curve Implementation
+// ─────────────────────────────────────────────────────────────────────────────
+
+class SpringCurve extends Curve {
+  final double a;
+  final double w;
+
+  const SpringCurve({
+    this.a = 0.15,
+    this.w = 19.4,
+  });
+
+  @override
+  double transformInternal(double t) {
+    return -(math.pow(math.e, -t / a) * math.cos(t * w)) + 1;
   }
 }

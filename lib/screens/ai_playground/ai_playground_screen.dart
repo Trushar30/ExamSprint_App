@@ -13,6 +13,7 @@ import 'ai_quiz_screen.dart';
 import 'ai_summary_screen.dart';
 import 'ai_chat_screen.dart';
 import 'ai_study_plan_screen.dart';
+import '../../widgets/animated_builder.dart';
 
 class AiPlaygroundScreen extends StatefulWidget {
   const AiPlaygroundScreen({super.key});
@@ -120,7 +121,7 @@ class _AiPlaygroundScreenState extends State<AiPlaygroundScreen>
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       child: Row(
         children: [
-          AnimatedBuilder(
+          AnimatedBuilder2(
             animation: _pulseCtrl,
             builder: (context, child) {
               return Container(
@@ -638,42 +639,4 @@ class _StaggeredItem extends StatelessWidget {
       child: FadeTransition(opacity: fadeAnim, child: child),
     );
   }
-}
-
-// ─── AnimatedBuilder ─────────────────────────────────────────────────────────
-
-class AnimatedBuilder extends StatelessWidget {
-  final Animation<double> animation;
-  final Widget Function(BuildContext, Widget?) builder;
-  final Widget? child;
-
-  const AnimatedBuilder({
-    super.key,
-    required this.animation,
-    required this.builder,
-    this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _AnimBuilderShell(
-      listenable: animation,
-      builder: builder,
-      child: child,
-    );
-  }
-}
-
-class _AnimBuilderShell extends AnimatedWidget {
-  final Widget Function(BuildContext, Widget?) builder;
-  final Widget? child;
-
-  const _AnimBuilderShell({
-    required super.listenable,
-    required this.builder,
-    this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) => builder(context, child);
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui';
 import 'dart:math' as math;
@@ -77,6 +78,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
 
   void _onTabTapped(int index) {
     if (index == _currentIndex) return;
+    HapticFeedback.lightImpact();
     setState(() => _currentIndex = index);
     _pageController.animateToPage(
       index,

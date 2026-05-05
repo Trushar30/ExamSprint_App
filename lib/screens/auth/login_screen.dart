@@ -6,6 +6,7 @@ import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/animated_button.dart';
 import '../../widgets/glass_card.dart';
+import '../../widgets/particle_background.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,10 +28,14 @@ class _LoginScreenState extends State<LoginScreen>
   late AnimationController _bgCtrl;
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
+  
+  int _passwordStrength = 0;
 
   @override
   void initState() {
     super.initState();
+    _passwordController.addListener(_updatePasswordStrength);
+
     _bgCtrl = AnimationController(
       duration: const Duration(seconds: 10),
       vsync: this,
@@ -42,6 +47,18 @@ class _LoginScreenState extends State<LoginScreen>
     )..forward();
 
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutCubic);
+  }
+
+  void _updatePasswordStrength() {
+    if (!_isSignUp) return;
+    final pwd = _passwordController.text;
+    int strength = 0;
+    if (pwd.length >= 6) strength++;
+    if (pwd.contains(RegExp(r'[A-Z]'))) strength++;
+    if (pwd.contains(RegExp(r'[0-9]')) || pwd.contains(RegExp(r'[^a-zA-Z0-9]'))) strength++;
+    if (strength != _passwordStrength) {
+      setState(() => _passwordStrength = strength);
+    }
   }
 
   @override
@@ -100,34 +117,8 @@ class _LoginScreenState extends State<LoginScreen>
     final isDark = brightness == Brightness.dark;
 
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: _bgCtrl,
-        builder: (context, child) {
-          final angle = _bgCtrl.value * 2 * math.pi;
-          return Container(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment(
-                  math.cos(angle) * 0.3,
-                  math.sin(angle) * 0.3,
-                ),
-                radius: 1.5,
-                colors: isDark
-                    ? [
-                        const Color(0xFF1A0A2E),
-                        const Color(0xFF0B0B14),
-                        const Color(0xFF0A0A12),
-                      ]
-                    : [
-                        const Color(0xFFEDE7F6),
-                        const Color(0xFFF7F7FC),
-                        const Color(0xFFF0F0F8),
-                      ],
-              ),
-            ),
-            child: child,
-          );
-        },
+      body: ParticleBackground(
+        brightness: brightness,
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -293,6 +284,40 @@ class _LoginScreenState extends State<LoginScreen>
                                 return null;
                               },
                             ),
+                            
+                            if (_isSignUp)
+                              AnimatedSize(
+                                duration: AppTheme.animMedium,
+                                child: _passwordController.text.isNotEmpty
+                                    ? Padding(
+                                        padding: const EdgeInsets.only(top: 8, bottom: 8),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: _StrengthBar(
+                                                strength: _passwordStrength,
+                                                level: 1,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: _StrengthBar(
+                                                strength: _passwordStrength,
+                                                level: 2,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: _StrengthBar(
+                                                strength: _passwordStrength,
+                                                level: 3,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
+                              ),
 
                             if (!_isSignUp) ...[
                               Align(
@@ -493,36 +518,28 @@ class _SocialButton extends StatelessWidget {
   }
 }
 
-// ─── AnimatedBuilder ──────────────────────────────────────────────────────────
+class _StrengthBar extends StatelessWidget {
+  final int strength;
+  final int level;
 
-class AnimatedBuilder extends StatelessWidget {
-  final Animation<double> animation;
-  final Widget Function(BuildContext, Widget?) builder;
-  final Widget? child;
-
-  const AnimatedBuilder({
-    super.key,
-    required this.animation,
-    required this.builder,
-    this.child,
-  });
+  const _StrengthBar({required this.strength, required this.level});
 
   @override
   Widget build(BuildContext context) {
-    return _AnimBuilder(listenable: animation, builder: builder, child: child);
+    Color color = AppTheme.border(Theme.of(context).brightness);
+    if (strength >= level) {
+      if (strength == 1) color = AppColors.error;
+      else if (strength == 2) color = AppColors.warning;
+      else color = AppColors.success;
+    }
+    return AnimatedContainer(
+      duration: AppTheme.animMedium,
+      height: 4,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
   }
 }
 
-class _AnimBuilder extends AnimatedWidget {
-  final Widget Function(BuildContext, Widget?) builder;
-  final Widget? child;
-
-  const _AnimBuilder({
-    required super.listenable,
-    required this.builder,
-    this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) => builder(context, child);
-}

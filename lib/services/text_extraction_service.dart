@@ -224,4 +224,44 @@ class TextExtractionService {
     }
     return combined;
   }
+
+  /// Build context from specific resource IDs only (for chapter-level filtering)
+  Future<String> buildContextForResources(List<String> resourceIds) async {
+    final allTexts = <String>[];
+
+    for (final resourceId in resourceIds) {
+      final text = await getResourceText(resourceId);
+      if (text != null && text.hasText) {
+        allTexts.add(text.extractedText);
+      }
+    }
+
+    final combined = allTexts.join('\n\n---\n\n');
+    if (combined.length > 100000) {
+      return combined.substring(0, 100000);
+    }
+    return combined;
+  }
+
+  /// Get all resources (with title + id) for a given subject
+  Future<List<Map<String, String>>> getResourceListForSubject(
+      String subjectId) async {
+    try {
+      final data = await _client
+          .from('resources')
+          .select('id, title, file_type')
+          .eq('subject_id', subjectId)
+          .order('title');
+
+      return (data as List).map((item) {
+        return {
+          'id': item['id'] as String,
+          'title': item['title'] as String,
+          'file_type': (item['file_type'] as String?) ?? '',
+        };
+      }).toList();
+    } catch (e) {
+      return [];
+    }
+  }
 }

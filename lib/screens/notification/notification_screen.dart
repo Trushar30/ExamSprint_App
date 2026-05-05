@@ -9,6 +9,7 @@ import '../../config/theme.dart';
 import '../../models/notification_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../widgets/animated_builder.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -817,40 +818,4 @@ class _EmptyStateState extends State<_EmptyState>
       ),
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  AnimatedBuilder2 — local helper to avoid conflict with main_shell.dart's
-// ─────────────────────────────────────────────────────────────────────────────
-
-class AnimatedBuilder2 extends StatelessWidget {
-  final Listenable animation;
-  final Widget Function(BuildContext, Widget?) builder;
-  final Widget? child;
-
-  const AnimatedBuilder2({
-    super.key,
-    required this.animation,
-    required this.builder,
-    this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _AnimShell(listenable: animation, builder: builder, child: child);
-  }
-}
-
-class _AnimShell extends AnimatedWidget {
-  final Widget Function(BuildContext, Widget?) builder;
-  final Widget? child;
-
-  const _AnimShell({
-    required super.listenable,
-    required this.builder,
-    this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) => builder(context, child);
 }

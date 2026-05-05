@@ -120,126 +120,481 @@ class _AiQuizScreenState extends State<AiQuizScreen>
 
   Widget _buildSettings(
       Brightness brightness, bool isDark, AiProvider aiProvider) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF7C3AED), Color(0xFF9F67FF)],
-                ),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF7C3AED).withOpacity(0.3),
-                    blurRadius: 24,
-                    spreadRadius: -4,
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.quiz_rounded,
-                  color: Colors.white, size: 40),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Generate a Quiz',
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary(brightness),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'AI will create MCQ questions from\n${aiProvider.selectedSubject?.name ?? "your"} resources',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: AppTheme.textTertiary(brightness),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 32),
-            // Question count selector
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: AppTheme.glassDecoration(brightness: brightness),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Number of Questions',
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary(brightness),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF7C3AED), Color(0xFF9F67FF)],
                     ),
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF7C3AED).withOpacity(0.3),
+                        blurRadius: 24,
+                        spreadRadius: -4,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [5, 10, 15, 20].map((count) {
-                      final isSelected = _questionCount == count;
-                      return GestureDetector(
-                        onTap: () => setState(() => _questionCount = count),
-                        child: AnimatedContainer(
-                          duration: AppTheme.animFast,
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            gradient:
-                                isSelected ? AppTheme.primaryGradient : null,
+                  child: const Icon(Icons.quiz_rounded,
+                      color: Colors.white, size: 36),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Configure Your Quiz',
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary(brightness),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Fine-tune your quiz with filters below',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppTheme.textTertiary(brightness),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // ── 1. Difficulty Level ──
+          _buildSectionLabel(brightness, Icons.speed_rounded, 'DIFFICULTY LEVEL'),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: AppTheme.glassDecoration(brightness: brightness),
+            child: Row(
+              children: ['Easy', 'Medium', 'Hard'].map((level) {
+                final isSelected = aiProvider.quizDifficulty == level;
+                final color = level == 'Easy'
+                    ? AppColors.success
+                    : level == 'Medium'
+                        ? AppColors.warning
+                        : AppColors.error;
+                final icon = level == 'Easy'
+                    ? Icons.sentiment_satisfied_rounded
+                    : level == 'Medium'
+                        ? Icons.psychology_rounded
+                        : Icons.local_fire_department_rounded;
+
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                        left: level == 'Easy' ? 0 : 4,
+                        right: level == 'Hard' ? 0 : 4),
+                    child: GestureDetector(
+                      onTap: () => aiProvider.setQuizDifficulty(level),
+                      child: AnimatedContainer(
+                        duration: AppTheme.animFast,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? color.withOpacity(0.15)
+                              : AppTheme.surfaceAlt(brightness),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                          border: Border.all(
                             color: isSelected
-                                ? null
-                                : AppTheme.surfaceAlt(brightness),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: isSelected
-                                  ? Colors.transparent
-                                  : AppTheme.border(brightness),
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '$count',
-                              style: GoogleFonts.spaceGrotesk(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: isSelected
-                                    ? Colors.white
-                                    : AppTheme.textPrimary(brightness),
-                              ),
-                            ),
+                                ? color
+                                : AppTheme.border(brightness),
+                            width: isSelected ? 1.5 : 1,
                           ),
                         ),
-                      );
-                    }).toList(),
+                        child: Column(
+                          children: [
+                            Icon(icon, size: 20,
+                                color: isSelected
+                                    ? color
+                                    : AppTheme.textTertiary(brightness)),
+                            const SizedBox(height: 4),
+                            Text(
+                              level,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight:
+                                    isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: isSelected
+                                    ? color
+                                    : AppTheme.textSecondary(brightness),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // ── 2. Chapter / Resource Selection ──
+          _buildSectionLabel(
+              brightness, Icons.menu_book_rounded, 'CHAPTERS / RESOURCES'),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: AppTheme.glassDecoration(brightness: brightness),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.filter_list_rounded,
+                      size: 14,
+                      color: AppTheme.textTertiary(brightness),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        aiProvider.selectedResourceIds.isEmpty
+                            ? 'All resources (no filter)'
+                            : '${aiProvider.selectedResourceIds.length} of ${aiProvider.availableResources.length} selected',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: aiProvider.selectedResourceIds.isEmpty
+                              ? AppTheme.textTertiary(brightness)
+                              : AppColors.accent,
+                        ),
+                      ),
+                    ),
+                    if (aiProvider.availableResources.isNotEmpty) ...[
+                      GestureDetector(
+                        onTap: () => aiProvider.selectedResourceIds.length ==
+                                aiProvider.availableResources.length
+                            ? aiProvider.deselectAllResources()
+                            : aiProvider.selectAllResources(),
+                        child: Text(
+                          aiProvider.selectedResourceIds.length ==
+                                  aiProvider.availableResources.length
+                              ? 'Clear All'
+                              : 'Select All',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.accent,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (aiProvider.isLoadingResources) ...[
+                  const SizedBox(height: 12),
+                  Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.accent,
+                      ),
+                    ),
+                  ),
+                ] else if (aiProvider.availableResources.isEmpty) ...[
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Text(
+                      'No resources found in this subject',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: AppTheme.textTertiary(brightness),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 8),
+                  ...aiProvider.availableResources.map((resource) {
+                    final isSelected = aiProvider.selectedResourceIds
+                        .contains(resource['id']);
+                    final fileType = resource['file_type'] ?? '';
+                    final typeEmoji = _getFileTypeEmoji(fileType);
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: GestureDetector(
+                        onTap: () =>
+                            aiProvider.toggleResourceSelection(resource['id']!),
+                        child: AnimatedContainer(
+                          duration: AppTheme.animFast,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppColors.accent.withOpacity(0.08)
+                                : AppTheme.surfaceAlt(brightness),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSm),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppColors.accent.withOpacity(0.4)
+                                  : AppTheme.border(brightness).withOpacity(0.5),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              AnimatedContainer(
+                                duration: AppTheme.animFast,
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? AppColors.accent
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(5),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? AppColors.accent
+                                        : AppTheme.textTertiary(brightness),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: isSelected
+                                    ? const Icon(Icons.check_rounded,
+                                        size: 14, color: Colors.white)
+                                    : null,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(typeEmoji,
+                                  style: const TextStyle(fontSize: 14)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  resource['title'] ?? 'Untitled',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                    color: isSelected
+                                        ? AppTheme.textPrimary(brightness)
+                                        : AppTheme.textSecondary(brightness),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // ── 3. Topic Focus ──
+          _buildSectionLabel(
+              brightness, Icons.center_focus_strong_rounded, 'TOPIC FOCUS'),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            decoration: AppTheme.glassDecoration(brightness: brightness),
+            child: TextField(
+              onChanged: (val) => aiProvider.setTopicFocus(val),
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: AppTheme.textPrimary(brightness),
+              ),
+              decoration: InputDecoration(
+                hintText: 'e.g. "Linked Lists", "Normalization"...',
+                hintStyle: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: AppTheme.textTertiary(brightness),
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                isDense: true,
+                prefixIcon: Icon(Icons.search_rounded,
+                    size: 18, color: AppTheme.textTertiary(brightness)),
+                prefixIconConstraints:
+                    const BoxConstraints(minWidth: 32, minHeight: 0),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Text(
+              'Leave empty to cover all topics',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                color: AppTheme.textTertiary(brightness),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // ── 4. Number of Questions ──
+          _buildSectionLabel(
+              brightness, Icons.format_list_numbered_rounded, 'QUESTIONS'),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: AppTheme.glassDecoration(brightness: brightness),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [5, 10, 15, 20].map((count) {
+                final isSelected = _questionCount == count;
+                return GestureDetector(
+                  onTap: () => setState(() => _questionCount = count),
+                  child: AnimatedContainer(
+                    duration: AppTheme.animFast,
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      gradient:
+                          isSelected ? AppTheme.primaryGradient : null,
+                      color: isSelected
+                          ? null
+                          : AppTheme.surfaceAlt(brightness),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isSelected
+                            ? Colors.transparent
+                            : AppTheme.border(brightness),
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$count',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: isSelected
+                              ? Colors.white
+                              : AppTheme.textPrimary(brightness),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 28),
+
+          // ── Active Filters Summary ──
+          if (aiProvider.quizDifficulty != 'Medium' ||
+              aiProvider.topicFocus.isNotEmpty ||
+              aiProvider.selectedResourceIds.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.info.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                border: Border.all(color: AppColors.info.withOpacity(0.25)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.tune_rounded,
+                      size: 16, color: AppColors.info),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _buildFilterSummary(aiProvider),
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.info,
+                        height: 1.4,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () =>
-                    aiProvider.generateQuiz(questionCount: _questionCount),
-                icon: const Icon(Icons.auto_awesome),
-                label: const Text('Generate Quiz'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
+            const SizedBox(height: 16),
+          ],
+
+          // ── Generate Button ──
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () =>
+                  aiProvider.generateQuiz(questionCount: _questionCount),
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('Generate Quiz'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _buildSectionLabel(
+      Brightness brightness, IconData icon, String label) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: AppColors.accent),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+            color: AppTheme.textTertiary(brightness),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _getFileTypeEmoji(String fileType) {
+    switch (fileType.toLowerCase()) {
+      case 'pdf':
+        return '📄';
+      case 'doc':
+      case 'docx':
+        return '📝';
+      case 'ppt':
+      case 'pptx':
+        return '📊';
+      case 'txt':
+      case 'md':
+        return '📃';
+      default:
+        return '📎';
+    }
+  }
+
+  String _buildFilterSummary(AiProvider aiProvider) {
+    final parts = <String>[];
+    if (aiProvider.quizDifficulty != 'Medium') {
+      parts.add('${aiProvider.quizDifficulty} difficulty');
+    }
+    if (aiProvider.selectedResourceIds.isNotEmpty) {
+      parts.add(
+          '${aiProvider.selectedResourceIds.length} chapter(s) selected');
+    }
+    if (aiProvider.topicFocus.isNotEmpty) {
+      parts.add('Topic: "${aiProvider.topicFocus}"');
+    }
+    return 'Filters: ${parts.join(' • ')}';
   }
 
   // ─── Loading State ─────────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
@@ -11,7 +12,9 @@ import '../../services/resource_service.dart';
 import '../../services/ai_service.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/animated_button.dart';
+import '../../widgets/animated_builder.dart';
 import '../resource/resource_reader_screen.dart';
+import '../../providers/class_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -39,6 +42,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool _isSaving = false;
   AiProvider _selectedAiProvider = AiProvider.geminiFlash;
 
+  bool _pushEnabled = true;
+  bool _discussionEnabled = true;
+  bool _resourceEnabled = false;
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +61,30 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     _loadUserResources();
     _loadApiKey();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _pushEnabled = prefs.getBool('push_enabled') ?? true;
+        _discussionEnabled = prefs.getBool('discussion_enabled') ?? true;
+        _resourceEnabled = prefs.getBool('resource_enabled') ?? false;
+      });
+    }
+  }
+
+  Future<void> _setPref(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+    if (mounted) {
+      setState(() {
+        if (key == 'push_enabled') _pushEnabled = value;
+        if (key == 'discussion_enabled') _discussionEnabled = value;
+        if (key == 'resource_enabled') _resourceEnabled = value;
+      });
+    }
   }
 
   Future<void> _loadUserResources() async {
@@ -345,7 +376,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     _StatItem(
-                      value: '—',
+                      value: context.watch<ClassProvider>().classes.length.toString(),
                       label: 'Classes',
                       brightness: brightness,
                     ),
@@ -509,9 +540,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                       _SwitchTile(
                         icon: Icons.notifications_outlined,
                         label: 'Push Notifications',
-                        value: true,
+                        value: _pushEnabled,
                         brightness: brightness,
-                        onChanged: (_) {},
+                        onChanged: (v) => _setPref('push_enabled', v),
                       ),
                       Divider(
                         color: AppTheme.border(brightness).withOpacity(0.3),
@@ -520,9 +551,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                       _SwitchTile(
                         icon: Icons.chat_bubble_outline_rounded,
                         label: 'Discussion Alerts',
-                        value: true,
+                        value: _discussionEnabled,
                         brightness: brightness,
-                        onChanged: (_) {},
+                        onChanged: (v) => _setPref('discussion_enabled', v),
                       ),
                       Divider(
                         color: AppTheme.border(brightness).withOpacity(0.3),
@@ -531,9 +562,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                       _SwitchTile(
                         icon: Icons.upload_file_rounded,
                         label: 'New Resource Alerts',
-                        value: false,
+                        value: _resourceEnabled,
                         brightness: brightness,
-                        onChanged: (_) {},
+                        onChanged: (v) => _setPref('resource_enabled', v),
                       ),
                     ],
                   ),
@@ -1014,7 +1045,7 @@ class _ResourceCardState extends State<_ResourceCard>
         widget.onTap();
       },
       onTapCancel: () => _tapCtrl.reverse(),
-      child: AnimatedBuilder(
+      child: AnimatedBuilder2(
         animation: _tapCtrl,
         builder: (context, child) {
           return Transform.scale(
@@ -1374,42 +1405,4 @@ class _SwitchTile extends StatelessWidget {
       ),
     );
   }
-}
-
-// ─── Animated Builder helper ─────────────────────────────────────────────────
-
-class AnimatedBuilder extends StatelessWidget {
-  final Listenable animation;
-  final Widget Function(BuildContext, Widget?) builder;
-  final Widget? child;
-
-  const AnimatedBuilder({
-    super.key,
-    required this.animation,
-    required this.builder,
-    this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _AnimBuilderShell(
-      listenable: animation,
-      builder: builder,
-      child: child,
-    );
-  }
-}
-
-class _AnimBuilderShell extends AnimatedWidget {
-  final Widget Function(BuildContext, Widget?) builder;
-  final Widget? child;
-
-  const _AnimBuilderShell({
-    required super.listenable,
-    required this.builder,
-    this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) => builder(context, child);
 }
